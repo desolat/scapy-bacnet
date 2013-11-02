@@ -94,7 +94,7 @@ class NPDUDest(Packet):
                    FieldLenField('dlen', None, length_of='dadr', fmt='B'),
                    ConditionalField(FieldListField('dadr', None, XByteField('dadr_byte', None), 
                                                    length_from=lambda pkt:pkt.dlen), 
-                                    lambda pkt: pkt.dadr is not None)
+                                    lambda pkt: pkt.dlen != 0 and pkt.dadr is not None)
                    ]
 
 
@@ -117,32 +117,36 @@ class NPDU(Packet):
     name = 'NPDU'
     fields_desc = [
                    ByteField('version', 1),
-                   BitField('nlpci', 0b00000000, 8),
-                   # @todo: use bit matching as condition
+                   BitField('nlpci', None, 8),
                    ConditionalField(PacketListField('dest', None, NPDUDest), 
-                                    lambda pkt: pkt.hop_count is not None), 
+                                    lambda pkt: pkt.nlpci & 0b00100000 != 0), 
                    ConditionalField(PacketListField('source', None, NPDUSource),
-                                    lambda pkt: pkt.hop_count is not None),
+                                    lambda pkt: pkt.nlpci & 0b00001000 != 0),
                    ConditionalField(ByteField('hop_count', None), 
-                                    lambda pkt: pkt.hop_count is not None),
+                                    lambda pkt: pkt.nlpci & 0b00100000 != 0),
                    XByteField('message_type', None),
                    ConditionalField(ShortField('network', None), 
-                                    lambda pkt: pkt.message_type == NetworkLayerMessageType.WHO_IS_ROUTER_TO_NETWORK),
+                                    lambda pkt: pkt.message_type == NetworkLayerMessageType.WHO_IS_ROUTER_TO_NETWORK 
+                                    and pkt.network is not None),
                    ConditionalField(FieldListField('networks', None, ShortField('network', None)),
                                     lambda pkt: pkt.message_type == NetworkLayerMessageType.I_AM_ROUTER_TO_NETWORK),
                    ]
 
-    def post_build(self, pkt, pay):
-        if self.nlpci is None:
-            if self.message_type is not None:
-                nlpci = 0b10000000
-            if self.dest is not None:
-                nlpci = nlpci | 0b00100000
-            if self.source is not None:
-                nlpci = nlpci | 0b00001000
-            pkt = pkt[0] + struct.pack("!x", nlpci) + pkt[2:]
-        
-        return pkt + pay
+
+#     def post_build(self, pkt, pay):
+#         '''
+#         @fixme: NLPCI must be provided for conditionality calculation
+#         '''
+#         if self.nlpci is None:
+#             if self.message_type is not None:
+#                 nlpci = 0b10000000
+#             if self.dest is not None:
+#                 nlpci = nlpci | 0b00100000
+#             if self.source is not None:
+#                 nlpci = nlpci | 0b00001000
+#             pkt = pkt[0] + struct.pack("!x", nlpci) + pkt[2:]
+#          
+#         return pkt + pay
         
     
 def hexStringToIntList(hexStr):

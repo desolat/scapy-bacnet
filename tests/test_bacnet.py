@@ -17,7 +17,8 @@ import pytest
 
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'src'))
 
-from bacnet import BvlcFunction, BVLC, BACNET_PORT, NPDU, NetworkLayerMessageType
+from bacnet import BvlcFunction, BVLC, BACNET_PORT, NPDU, NetworkLayerMessageType, NPDUSource,\
+    NPDUDest, hexStringToIntList
 
 
 SRC_IP = '192.168.56.1'
@@ -57,6 +58,20 @@ def test_bvlc_register_fd(udp):
 
 
 @pytest.mark.usefixtures('bind_bvlc')
+def test_npdu_who_is_router_to_network_no_net(udp):
+    bind_layers(BVLC, NPDU, function=BvlcFunction.ORIGINAL_BROADCAST_NPDU)
+    
+    bvlc = udp/BVLC(function=BvlcFunction.ORIGINAL_BROADCAST_NPDU)
+    npdu = bvlc/NPDU(nlpci=0b10000000, 
+                     message_type=NetworkLayerMessageType.WHO_IS_ROUTER_TO_NETWORK)
+    npdu.show2()
+    send(npdu)
+    print npdu['BVLC'].length
+    assert npdu['BVLC'].length == 9
+    assert True == False
+
+
+@pytest.mark.usefixtures('bind_bvlc')
 def test_npdu_who_is_router_to_network(udp):
     bind_layers(BVLC, NPDU, function=BvlcFunction.ORIGINAL_BROADCAST_NPDU)
     
@@ -72,13 +87,75 @@ def test_npdu_who_is_router_to_network(udp):
 
 
 @pytest.mark.usefixtures('bind_bvlc')
+def test_npdu_who_is_router_to_network_with_dest(udp):
+    bind_layers(BVLC, NPDU, function=BvlcFunction.ORIGINAL_BROADCAST_NPDU)
+    
+    bvlc = udp/BVLC(function=BvlcFunction.ORIGINAL_BROADCAST_NPDU)
+    npdu = bvlc/NPDU(nlpci=0b10100000, 
+                     message_type=NetworkLayerMessageType.WHO_IS_ROUTER_TO_NETWORK,
+                     dest=NPDUDest(dadr=hexStringToIntList('01'), dnet=99),
+                     hop_count=255,
+                     network=2)
+    npdu.show2()
+    send(npdu)
+    print npdu['BVLC'].length
+    assert npdu['BVLC'].length == 9
+    assert True == False
+
+
+@pytest.mark.usefixtures('bind_bvlc')
+def test_npdu_who_is_router_to_network_with_source(udp):
+    bind_layers(BVLC, NPDU, function=BvlcFunction.ORIGINAL_BROADCAST_NPDU)
+    
+    bvlc = udp/BVLC(function=BvlcFunction.ORIGINAL_BROADCAST_NPDU)
+    npdu = bvlc/NPDU(nlpci=0b10001000, 
+                     message_type=NetworkLayerMessageType.WHO_IS_ROUTER_TO_NETWORK,
+                     source=NPDUSource(sadr=hexStringToIntList('FFFF'), snet=80),
+                     network=3)
+    npdu.show2()
+    send(npdu)
+    assert True == False
+
+
+@pytest.mark.usefixtures('bind_bvlc')
+def test_npdu_who_is_router_to_network_with_dest_and_source(udp):
+    bind_layers(BVLC, NPDU, function=BvlcFunction.ORIGINAL_BROADCAST_NPDU)
+    
+    bvlc = udp/BVLC(function=BvlcFunction.ORIGINAL_BROADCAST_NPDU)
+    npdu = bvlc/NPDU(nlpci=0b10101000, 
+                     message_type=NetworkLayerMessageType.WHO_IS_ROUTER_TO_NETWORK,
+                     dest=NPDUDest(dadr=hexStringToIntList('01'), dnet=99),
+                     source=NPDUSource(sadr=hexStringToIntList('FFFF'), snet=80),
+                     hop_count=255,
+                     network=4)
+    npdu.show2()
+    send(npdu)
+    assert True == False
+
+
+@pytest.mark.usefixtures('bind_bvlc')
 def test_npdu_i_am_router_to_network(udp):
     bind_layers(BVLC, NPDU)
     
     bvlc = udp/BVLC(function=BvlcFunction.ORIGINAL_BROADCAST_NPDU)
     npdu = bvlc/NPDU(nlpci=0b10000000, 
                      message_type=NetworkLayerMessageType.I_AM_ROUTER_TO_NETWORK,
-                     networks=[1,2])
+                     networks=[1,2,3])
+    npdu.show2()
+    send(npdu)
+    assert True == False
+
+
+@pytest.mark.usefixtures('bind_bvlc')
+def test_npdu_i_am_router_to_network_global_broadcast(udp):
+    bind_layers(BVLC, NPDU)
+    
+    bvlc = udp/BVLC(function=BvlcFunction.ORIGINAL_BROADCAST_NPDU)
+    npdu = bvlc/NPDU(nlpci=0b10100000, 
+                     dest=NPDUDest(dlen=0, dnet=0xFFFF),
+                     hop_count=255,
+                     message_type=NetworkLayerMessageType.I_AM_ROUTER_TO_NETWORK,
+                     networks=[1,2,3])
     npdu.show2()
     send(npdu)
     assert True == False
