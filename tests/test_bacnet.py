@@ -39,6 +39,13 @@ def bind_bvlc():
 def udp():
     udp = IP(src=SRC_IP, dst=DST_IP)/UDP(sport=BACNET_PORT, dport=BACNET_PORT)
     return udp
+    
+
+def test_ifaces():
+    show_interfaces()
+    print ifaces()
+    print conf.iface
+    #conf.iface="eth6"
 
 
 @pytest.mark.usefixtures('bind_bvlc')
