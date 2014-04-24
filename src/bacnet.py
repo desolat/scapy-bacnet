@@ -57,6 +57,7 @@ class BvlcFunction(Enum):
     READ_BDT_ACK = 3
     FORWARDED_NPDU = 4
     REGISTER_FD = 5
+    DISTRIBUTE_BROADCAST_TO_NETWORK = 9
     ORIGINAL_UNICAST_NPDU = 10
     ORIGINAL_BROADCAST_NPDU = 11
 
@@ -132,6 +133,23 @@ class NPDU(Packet):
                                     lambda pkt: pkt.message_type == NetworkLayerMessageType.I_AM_ROUTER_TO_NETWORK),
                    ]
 
+                   
+class ApplicationLayerType(Enum):
+    UNCONFIRMED_REQUEST = 1
+   
+   
+class UnconfirmedServiceChoice(Enum):
+    WHO_IS = 8
+
+
+class APDU(Packet):
+    name = 'APDU'
+    fields_desc = [
+                   BitEnumField('type', None, 4, ApplicationLayerType.revDict()),
+                   BitField('reserved', 0, 4),
+                   ByteEnumField('service_choice', None, UnconfirmedServiceChoice.revDict())
+                   ]
+   
 
 #     def post_build(self, pkt, pay):
 #         '''
