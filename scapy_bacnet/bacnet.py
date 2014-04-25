@@ -16,6 +16,9 @@ __version__ = ""
 
 
 import inspect
+# Set log level to benefit from Scapy warnings
+import logging
+logging.getLogger("scapy").setLevel(1)
 
 from scapy.all import *
 
@@ -168,35 +171,51 @@ class APDU(Packet):
 #         return pkt + pay
         
     
+def getNpduBase(dest=None, source=None, hopCount=255, withApdu=False):
+    npduContent = {'nlpci' : getNlpci(dest, source, withApdu)}
+    if dest:
+        npduContent['dest'] = getNpduDest(dest)
+        npduContent['hop_count'] = hopCount
+    if source:
+        npduContent['source'] = getNpduSource(source)
+    return npduContent
+
+
+def getNlpci(dest=None, source=None, withApdu=False):
+    if withApdu:
+        nlpci = 0b00000000
+    else:
+        nlpci = 0b10000000
+    if dest:
+        nlpci = nlpci | 0b00100000
+    if source:
+        nlpci = nlpci | 0b00001000
+    return nlpci
+
+
+def getNpduDest(dest):
+    if dest.has_key('dlen') and dest.has_key('dadr'):
+        log.warn('Both dlen and dadr not allowed in dest')
+    if dest.has_key('dadr'):
+        dest['dadr'] = hexStringToIntList(dest['dadr'])
+    if dest.has_key('dlen'):
+        if dest['dlen'] != 0:
+            log.warn('Invalid dlen: %d, only 0 for BROADCAST allowed' % dest['dlen'])
+    dest = NPDUDest(**dest)
+    return dest
+
+
+def getNpduSource(source):
+    if source.has_key('sadr'):
+        source['sadr'] = hexStringToIntList(source['sadr'])
+    source = NPDUSource(**source)
+    return source
+
+
 def hexStringToIntList(hexStr):
     hexByteStrings = [hexStr[i:i+2] for i in range(0, len(hexStr), 2)]
     return [int(hexByteStr, 16) for hexByteStr in hexByteStrings]
 
-    
-def getNPDU(dest=None, source=None, hopCount=255):
-    npdu = {}
-    nlpci = 0b10000000
-    if dest:
-        nlpci = nlpci | 0b00100000
-        if dest.has_key('dlen') and dest.has_key('dadr'):
-            log.warn('Both dlen and dadr not allowed in dest')
-        if dest.has_key('dadr'):
-            dest['dadr'] = hexStringToIntList(dest['dadr'])
-        if dest.has_key('dlen'):
-            if dest['dlen'] != 0:
-                log.warn('Invalid dlen: %d, only 0 for BROADCAST allowed' % dest['dlen'])
-        dest = NPDUDest(**dest)
-        npdu['dest'] = dest
-        npdu['hop_count'] = hopCount
-    if source:
-        nlpci = nlpci | 0b00001000
-        if source.has_key('sadr'):
-            source['sadr'] = hexStringToIntList(source['sadr'])
-        source = NPDUSource(**source)
-        npdu['source'] = source
-    npdu['nlpci'] = nlpci
-    npdu = NPDU(**npdu)
-    return npdu    
 
-
-
+if __name__ == "__main__":
+    interact(mydict=globals(), mybanner='BACnet')
