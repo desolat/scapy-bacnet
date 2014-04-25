@@ -17,7 +17,7 @@ import pytest
 
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'src'))
 
-from bacnet import BvlcFunction, BVLC, BACNET_PORT, NPDU, NetworkLayerMessageType, NPDUSource,\
+from scapy_bacnet.bacnet import BvlcFunction, BVLC, BACNET_PORT, NPDU, NetworkLayerMessageType, NPDUSource,\
     NPDUDest, hexStringToIntList
 
 

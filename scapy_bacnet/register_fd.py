@@ -16,7 +16,7 @@ from scapy.all import *
 from scapy.layers.inet import IP, UDP
 from netaddr.ip import IPNetwork, IPAddress
 
-from bacnet import BvlcFunction, BVLC, BACNET_PORT
+from scapy_bacnet.bacnet import BvlcFunction, BVLC, BACNET_PORT
 
 
 LOG = logging.getLogger()
