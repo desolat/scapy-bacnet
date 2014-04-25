@@ -18,7 +18,7 @@ import pytest
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'src'))
 
 from scapy_bacnet.bacnet import BvlcFunction, BVLC, BACNET_PORT, NPDU, NetworkLayerMessageType, NPDUSource,\
-    NPDUDest, hexStringToIntList
+    NPDUDest, hexStringToIntList, APDU, PduType, UnconfirmedServiceChoice
 
 
 SRC_IP = '192.168.56.1'
@@ -34,12 +34,35 @@ def bind_bvlc():
     bind_layers(UDP, BVLC, sport=BACNET_PORT)
     bind_layers(UDP, BVLC, dport=BACNET_PORT)
     
+    
+@pytest.fixture
+def bind_apdu():
+    bind_bvlc()
+    bind_layers(BVLC, NPDU)
+    bind_layers(NPDU, APDU)
+        
 
 @pytest.fixture
 def udp():
     udp = IP(src=SRC_IP, dst=DST_IP)/UDP(sport=BACNET_PORT, dport=BACNET_PORT)
     return udp
     
+    
+@pytest.fixture
+def npdu_global_broadcast(udp):
+    bvlc = udp/BVLC(function=BvlcFunction.ORIGINAL_BROADCAST_NPDU)
+    npdu = bvlc/NPDU(nlpci=0b00100000, 
+                     dest=NPDUDest(dlen=0, dnet=0xFFFF),
+                     hop_count=255)
+    return npdu
+
+
+@pytest.fixture
+def npdu_distribute_broadcast(udp):
+    bvlc = udp/BVLC(function=BvlcFunction.DISTRIBUTE_BROADCAST_TO_NETWORK)
+    npdu = bvlc/NPDU(nlpci=0b00000000)
+    return npdu
+
 
 def test_ifaces():
     show_interfaces()
@@ -168,6 +191,24 @@ def test_npdu_i_am_router_to_network_global_broadcast(udp):
     assert True == False
 
 
+@pytest.mark.usefixtures('bind_apdu')
+def test_apdu_who_is_global_broadcast(npdu_global_broadcast):
+    apdu = npdu_global_broadcast/APDU(pdu_type=PduType.UNCONFIRMED_REQUEST, 
+                                      service_choice=UnconfirmedServiceChoice.WHO_IS)
+    apdu.show2()
+    send(apdu)
+    assert True == False
+
+
+@pytest.mark.usefixtures('bind_apdu')
+def test_apdu_who_is_distribute_broadcast(npdu_distribute_broadcast):
+    apdu = npdu_distribute_broadcast/APDU(pdu_type=PduType.UNCONFIRMED_REQUEST, 
+                                          service_choice=UnconfirmedServiceChoice.WHO_IS)
+    apdu.show2()
+    send(apdu)
+    assert True == False
+    
+    
 #    def whoIsRouterToNetwork(self, ipDest, dest=None, source=None, hopCount=255, net=None):
 #        p = self.getWhoIsRouterToNetwork(ipDest, dest, source, hopCount, net)
 #        ans, unans = sr(p, multi=True, timeout=3, verbose=3)

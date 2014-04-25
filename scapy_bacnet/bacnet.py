@@ -125,7 +125,8 @@ class NPDU(Packet):
                                     lambda pkt: pkt.nlpci & 0b00001000 != 0),
                    ConditionalField(ByteField('hop_count', None), 
                                     lambda pkt: pkt.nlpci & 0b00100000 != 0),
-                   XByteField('message_type', None),
+                   ConditionalField(XByteField('message_type', None),
+                                    lambda pkt: pkt.nlpci & 0b10000000 != 0),
                    ConditionalField(ShortField('network', None), 
                                     lambda pkt: pkt.message_type == NetworkLayerMessageType.WHO_IS_ROUTER_TO_NETWORK 
                                     and pkt.network is not None),
