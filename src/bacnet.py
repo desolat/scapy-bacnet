@@ -72,7 +72,7 @@ class BVLC(Packet):
                                     lambda pkt: pkt.function == BvlcFunction.REGISTER_FD),
                    ConditionalField(IPField('origin_ip', None), 
                                   lambda pkt: pkt.function == BvlcFunction.FORWARDED_NPDU),
-                   ConditionalField(ShortField('origin_port', 47808), 
+                   ConditionalField(ShortField('origin_port', BACNET_PORT), 
                                     lambda pkt: pkt.function == BvlcFunction.FORWARDED_NPDU),
                    ]
 
@@ -134,7 +134,7 @@ class NPDU(Packet):
                    ]
 
                    
-class ApplicationLayerType(Enum):
+class PduType(Enum):
     UNCONFIRMED_REQUEST = 1
    
    
@@ -145,7 +145,7 @@ class UnconfirmedServiceChoice(Enum):
 class APDU(Packet):
     name = 'APDU'
     fields_desc = [
-                   BitEnumField('type', None, 4, ApplicationLayerType.revDict()),
+                   BitEnumField('pdu_type', None, 4, PduType.revDict()),
                    BitField('reserved', 0, 4),
                    ByteEnumField('service_choice', None, UnconfirmedServiceChoice.revDict())
                    ]
