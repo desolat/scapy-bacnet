@@ -2,11 +2,7 @@
 '''
 @since: 14.04.2014
 @author: nuabaranda@web.de
-@version: $Id$
 '''
-
-__version__ = "$Rev"
-# $Source$
 
 
 import logging
@@ -25,13 +21,13 @@ TTL = 3600
 
 def main():
     opts, args = parseCommandLine()
-    if len(args) == 1: 
+    if len(args) == 1:
         dstAddr = IPAddress(args[0])
         srcAddr = None
     elif len(args) == 2:
         srcAddr = IPAddress(args[0])
-        dstAddr = IPAddress(args[1]) 
-    
+        dstAddr = IPAddress(args[1])
+
     dstIfInfos = getIfaceInfo(dstAddr)
     if len(dstIfInfos) > 1:
         raise BaseException('Found more than one matching interface: %s' % dstIfInfos)
@@ -45,9 +41,9 @@ def main():
 
     bind_layers(UDP, BVLC, sport=BACNET_PORT)
     bind_layers(UDP, BVLC, dport=BACNET_PORT)
-    
-    udp = IP(src=str(srcAddr), dst=str(dstAddr))/UDP(sport=BACNET_PORT, dport=BACNET_PORT)
-    bvlc = udp/BVLC(function=BvlcFunction.REGISTER_FD, time_to_live=opts.ttl)
+
+    udp = IP(src=str(srcAddr), dst=str(dstAddr)) / UDP(sport=BACNET_PORT, dport=BACNET_PORT)
+    bvlc = udp / BVLC(function=BvlcFunction.REGISTER_FD, time_to_live=opts.ttl)
     bvlc.show2()
     send(bvlc)
 
@@ -59,13 +55,13 @@ Uses the network interface which matches the destination.
 '''
     usage = 'usage: %prog [src_addr] dst_addr [options]'
     parser = OptionParser(usage=usage, description=description)
-    parser.add_option('--ttl', dest='ttl', default=3600, 
+    parser.add_option('--ttl', dest='ttl', default=3600,
                       help='Time to live in seconds, default: %d' % TTL)
     (opts, args) = parser.parse_args()
     if len(args) < 1 or len(args) > 2:
         parser.error('Expecting 1 or 2 arguments')
     return opts, args
-        
+
 
 def getIfaceInfo(ipNetworkOrAddress):
     '''
@@ -80,7 +76,7 @@ def getIfaceInfo(ipNetworkOrAddress):
         LOG.info('Getting interface info for network %s' % ipNetworkOrAddress.ip)
     else:
         raise BaseException('ipNetworkOrAddress must be netaddr IPAddress or IPNetwork')
-        
+
     matchingIfaceInfos = []
     for ifaceInfo in ifaces.itervalues():
         network = IPNetwork(str(ifaceInfo.dnetdict['addr']))

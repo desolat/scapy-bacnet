@@ -11,9 +11,6 @@ Evolution steps:
 @author: nuabaranda@web.de
 '''
 
-__version__ = ""
-# $Source$
-
 
 import inspect
 # Set log level to benefit from Scapy warnings
@@ -28,14 +25,14 @@ BACNET_PORT = 47808
 
 class Enum(object):
     _intern = object.__dict__.keys() + ['__module__', '__dict__', '__weakref__', '_intern']
-    
+
     @classmethod
     def keys(cls):
         # introspection on __dict__ values does not work
-#        keys = filter(lambda key: key not in cls._intern, 
+#        keys = filter(lambda key: key not in cls._intern,
 #                      cls.__dict__.keys())
         members = inspect.getmembers(cls)
-        keys = [key for key, value in members if (key not in cls._intern 
+        keys = [key for key, value in members if (key not in cls._intern
                                                   and not inspect.ismethod(value)
                                                   and not inspect.isfunction(value))]
         return keys
@@ -43,15 +40,15 @@ class Enum(object):
     @classmethod
     def values(cls):
         return [cls.__dict__[key] for key in cls.keys()]
-    
+
     @classmethod
     def dict(cls):
         return dict(zip(cls.keys(), cls.values()))
-    
+
     @classmethod
     def revDict(cls):
         return dict(zip(cls.values(), cls.keys()))
-    
+
 
 class BvlcFunction(Enum):
     RESULT = 0
@@ -73,13 +70,13 @@ class BVLC(Packet):
                    ShortField('length', None),
                    ConditionalField(ShortField('time_to_live', None),
                                     lambda pkt: pkt.function == BvlcFunction.REGISTER_FD),
-                   ConditionalField(IPField('origin_ip', None), 
+                   ConditionalField(IPField('origin_ip', None),
                                   lambda pkt: pkt.function == BvlcFunction.FORWARDED_NPDU),
-                   ConditionalField(ShortField('origin_port', BACNET_PORT), 
+                   ConditionalField(ShortField('origin_port', BACNET_PORT),
                                     lambda pkt: pkt.function == BvlcFunction.FORWARDED_NPDU),
                    ]
 
-    
+
     def post_build(self, pkt, pay):
         if self.length is None:
             length = len(pkt) + len(pay)
@@ -96,8 +93,8 @@ class NPDUDest(Packet):
     fields_desc = [
                    ShortField('dnet', None),
                    FieldLenField('dlen', None, length_of='dadr', fmt='B'),
-                   ConditionalField(FieldListField('dadr', None, XByteField('dadr_byte', None), 
-                                                   length_from=lambda pkt:pkt.dlen), 
+                   ConditionalField(FieldListField('dadr', None, XByteField('dadr_byte', None),
+                                                   length_from=lambda pkt:pkt.dlen),
                                     lambda pkt: pkt.dlen != 0 and pkt.dadr is not None)
                    ]
 
@@ -107,7 +104,7 @@ class NPDUSource(Packet):
     fields_desc = [
                    ShortField('snet', None),
                    FieldLenField('slen', None, length_of='sadr', fmt='B'),
-                   FieldListField('sadr', None, XByteField('sadr_byte', None), 
+                   FieldListField('sadr', None, XByteField('sadr_byte', None),
                                   length_from=lambda pkt:pkt.slen)
                    ]
 
@@ -122,26 +119,26 @@ class NPDU(Packet):
     fields_desc = [
                    ByteField('version', 1),
                    BitField('nlpci', None, 8),
-                   ConditionalField(PacketListField('dest', None, NPDUDest), 
-                                    lambda pkt: pkt.nlpci & 0b00100000 != 0), 
+                   ConditionalField(PacketListField('dest', None, NPDUDest),
+                                    lambda pkt: pkt.nlpci & 0b00100000 != 0),
                    ConditionalField(PacketListField('source', None, NPDUSource),
                                     lambda pkt: pkt.nlpci & 0b00001000 != 0),
-                   ConditionalField(ByteField('hop_count', None), 
+                   ConditionalField(ByteField('hop_count', None),
                                     lambda pkt: pkt.nlpci & 0b00100000 != 0),
                    ConditionalField(XByteField('message_type', None),
                                     lambda pkt: pkt.nlpci & 0b10000000 != 0),
-                   ConditionalField(ShortField('network', None), 
-                                    lambda pkt: pkt.message_type == NetworkLayerMessageType.WHO_IS_ROUTER_TO_NETWORK 
+                   ConditionalField(ShortField('network', None),
+                                    lambda pkt: pkt.message_type == NetworkLayerMessageType.WHO_IS_ROUTER_TO_NETWORK
                                     and pkt.network is not None),
                    ConditionalField(FieldListField('networks', None, ShortField('network', None)),
                                     lambda pkt: pkt.message_type == NetworkLayerMessageType.I_AM_ROUTER_TO_NETWORK),
                    ]
 
-                   
+
 class PduType(Enum):
     UNCONFIRMED_REQUEST = 1
-   
-   
+
+
 class UnconfirmedServiceChoice(Enum):
     WHO_IS = 8
 
@@ -153,7 +150,7 @@ class APDU(Packet):
                    BitField('reserved', 0, 4),
                    ByteEnumField('service_choice', None, UnconfirmedServiceChoice.revDict())
                    ]
-   
+
 
 #     def post_build(self, pkt, pay):
 #         '''
@@ -167,10 +164,10 @@ class APDU(Packet):
 #             if self.source is not None:
 #                 nlpci = nlpci | 0b00001000
 #             pkt = pkt[0] + struct.pack("!x", nlpci) + pkt[2:]
-#          
+#
 #         return pkt + pay
-        
-    
+
+
 def getNpduBase(dest=None, source=None, hopCount=255, withApdu=False):
     npduContent = {'nlpci' : getNlpci(dest, source, withApdu)}
     if dest:
@@ -213,7 +210,7 @@ def getNpduSource(source):
 
 
 def hexStringToIntList(hexStr):
-    hexByteStrings = [hexStr[i:i+2] for i in range(0, len(hexStr), 2)]
+    hexByteStrings = [hexStr[i:i + 2] for i in range(0, len(hexStr), 2)]
     return [int(hexByteStr, 16) for hexByteStr in hexByteStrings]
 
 
