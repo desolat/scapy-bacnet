@@ -13,11 +13,15 @@ Evolution steps:
 
 
 import inspect
-# Set log level to benefit from Scapy warnings
 import logging
+
+from netaddr.ip import IPNetwork, IPAddress
+
+# Set log level to benefit from Scapy warnings
 logging.getLogger("scapy").setLevel(1)
 
 from scapy.all import *
+from scapy.layers.inet import IP, UDP
 
 
 BACNET_PORT = 47808
@@ -168,6 +172,18 @@ class APDU(Packet):
 #         return pkt + pay
 
 
+def getBvlcBase(ipDest):
+    bvlcBase = {}
+    if isinstance(ipDest, IPNetwork):
+        function = BvlcFunction.ORIGINAL_BROADCAST_NPDU
+    elif isinstance(ipDest, IPAddress):
+        function = BvlcFunction.ORIGINAL_UNICAST_NPDU
+    else:
+        raise Scapy_Exception('Invalid class for IP destination')
+    bvlcBase['function'] = function
+    return bvlcBase
+
+
 def getNpduBase(dest=None, source=None, hopCount=255, withApdu=False):
     npduContent = {'nlpci' : getNlpci(dest, source, withApdu)}
     if dest:
@@ -212,6 +228,31 @@ def getNpduSource(source):
 def hexStringToIntList(hexStr):
     hexByteStrings = [hexStr[i:i + 2] for i in range(0, len(hexStr), 2)]
     return [int(hexByteStr, 16) for hexByteStr in hexByteStrings]
+
+
+def sendWhoIs(src, dst):
+    '''
+    @param dst: Destination IP or network 
+    '''
+
+    try:
+        ipDst = IPNetwork(dst)
+        dst = str(ipDst.broadcast)
+    except:
+        ipDst = IPAddress(dst)
+
+    bind_layers(UDP, BVLC, sport=BACNET_PORT)
+    bind_layers(UDP, BVLC, dport=BACNET_PORT)
+    bind_layers(BVLC, NPDU)
+    udp = IP(src=src, dst=dst) / UDP(sport=BACNET_PORT, dport=BACNET_PORT)
+
+    bvlcBase = getBvlcBase(ipDst)
+    bvlc = udp / BVLC(**bvlcBase)
+    npduBase = getNpduBase(withApdu=True)
+    npdu = bvlc / NPDU(**npduBase)
+    apdu = npdu / APDU(pdu_type=PduType.UNCONFIRMED_REQUEST,
+                       service_choice=UnconfirmedServiceChoice.WHO_IS)
+    send(apdu, count=10)
 
 
 if __name__ == "__main__":
