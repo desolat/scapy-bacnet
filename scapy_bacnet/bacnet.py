@@ -119,23 +119,69 @@ class NPDU(Packet):
     fields_desc = [
                    ByteField('version', 1),
                    BitField('nlpci', None, 8),
-                   ConditionalField(PacketListField('dest', None, NPDUDest),
+                   # optional destination
+#                    ConditionalField(PacketListField('dest', None, NPDUDest),
+#                                     lambda pkt: pkt.nlpci & 0b00100000 != 0),
+                   ConditionalField(ShortField('dnet', None),
                                     lambda pkt: pkt.nlpci & 0b00100000 != 0),
-                   ConditionalField(PacketListField('source', None, NPDUSource),
+                   ConditionalField(FieldLenField('dlen', None, length_of='dadr', fmt='B'),
+                                    lambda pkt: pkt.nlpci & 0b00100000 != 0),
+                   ConditionalField(FieldListField('dadr', None, XByteField('dadr_byte', None),
+                                                   length_from=lambda pkt:pkt.dlen),
+                                    lambda pkt: pkt.nlpci & 0b00100000 != 0
+                                        and pkt.dlen != 0
+                                        and pkt.dadr is not None),
+                   # optional source
+#                    ConditionalField(PacketListField('source', None, NPDUSource),
+#                                     lambda pkt: pkt.nlpci & 0b00001000 != 0),
+                   ConditionalField(ShortField('snet', None),
                                     lambda pkt: pkt.nlpci & 0b00001000 != 0),
+                   ConditionalField(FieldLenField('slen', None, length_of='sadr', fmt='B'),
+                                    lambda pkt: pkt.nlpci & 0b00001000 != 0),
+                   ConditionalField(FieldListField('sadr', None, XByteField('sadr_byte', None),
+                                                   length_from=lambda pkt:pkt.slen),
+                                    lambda pkt: pkt.nlpci & 0b00001000 != 0),
+
                    ConditionalField(ByteField('hop_count', None),
                                     lambda pkt: pkt.nlpci & 0b00100000 != 0),
                    ConditionalField(XByteField('message_type', None),
                                     lambda pkt: pkt.nlpci & 0b10000000 != 0),
-                   ConditionalField(ShortField('network', None),
+                   ConditionalField(
+                                    ShortField('network', None),
                                     lambda pkt: pkt.message_type == NetworkLayerMessageType.WHO_IS_ROUTER_TO_NETWORK
-                                    and pkt.payload is not None),
+                                        and pkt.network is not None
+                                    ),
                    ConditionalField(FieldListField('networks', None, ShortField('network', None)),
                                     lambda pkt: pkt.message_type == NetworkLayerMessageType.I_AM_ROUTER_TO_NETWORK),
                    ]
 
-    def post_build(self, pkt, pay):
-        return pkt + pay
+
+#     def post_build(self, pkt, pay):
+#         '''
+#         @fixme: NLPCI must be provided for conditionality calculation
+#         '''
+#         if self.nlpci is None:
+#             if self.message_type is not None:
+#                 nlpci = 0b10000000
+#             if self.dest is not None:
+#                 nlpci = nlpci | 0b00100000
+#             if self.source is not None:
+#                 nlpci = nlpci | 0b00001000
+#             pkt = pkt[0] + struct.pack("!x", nlpci) + pkt[2:]
+#
+#         return pkt + pay
+
+
+#     def post_dissect(self, s):
+#         return s
+
+
+    def extract_padding(self, s):
+        if s != '' and self.message_type == NetworkLayerMessageType.WHO_IS_ROUTER_TO_NETWORK:
+            network = struct.unpack('!H', s)[0]
+            self.network = network
+            s = ''
+        return s, None
 
 
 class PduType(Enum):
@@ -170,21 +216,6 @@ class APDU(Packet):
                    ByteEnumField('service_choice', None, UnconfirmedServiceChoice.revDict())
                    ]
 
-
-#     def post_build(self, pkt, pay):
-#         '''
-#         @fixme: NLPCI must be provided for conditionality calculation
-#         '''
-#         if self.nlpci is None:
-#             if self.message_type is not None:
-#                 nlpci = 0b10000000
-#             if self.dest is not None:
-#                 nlpci = nlpci | 0b00100000
-#             if self.source is not None:
-#                 nlpci = nlpci | 0b00001000
-#             pkt = pkt[0] + struct.pack("!x", nlpci) + pkt[2:]
-#
-#         return pkt + pay
 
 
 def getNpduBase(dest=None, source=None, hopCount=255, withApdu=False):

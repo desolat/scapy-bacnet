@@ -7,6 +7,7 @@
 import os.path
 
 from scapy.all import *
+from scapy.layers.inet import UDP
 
 import pytest
 
@@ -22,7 +23,12 @@ def bind_bvlc():
 
 
 @pytest.fixture
-def bind_apdu():
+def bind_npdu():
     bind_bvlc()
     bind_layers(BVLC, NPDU)
+
+
+@pytest.fixture
+def bind_apdu():
+    bind_npdu()
     bind_layers(NPDU, APDU)
