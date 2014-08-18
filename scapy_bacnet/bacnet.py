@@ -129,10 +129,13 @@ class NPDU(Packet):
                                     lambda pkt: pkt.nlpci & 0b10000000 != 0),
                    ConditionalField(ShortField('network', None),
                                     lambda pkt: pkt.message_type == NetworkLayerMessageType.WHO_IS_ROUTER_TO_NETWORK
-                                    and pkt.network is not None),
+                                    and pkt.payload is not None),
                    ConditionalField(FieldListField('networks', None, ShortField('network', None)),
                                     lambda pkt: pkt.message_type == NetworkLayerMessageType.I_AM_ROUTER_TO_NETWORK),
                    ]
+
+    def post_build(self, pkt, pay):
+        return pkt + pay
 
 
 class PduType(Enum):
