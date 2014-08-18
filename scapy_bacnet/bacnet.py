@@ -123,36 +123,40 @@ class NPDU(Packet):
     fields_desc = [
                    ByteField('version', 1),
                    BitField('nlpci', None, 8),
-                   ConditionalField(PacketListField('dest', None, NPDUDest),
+                   # optional destination
+#                    ConditionalField(PacketListField('dest', None, NPDUDest),
+#                                     lambda pkt: pkt.nlpci & 0b00100000 != 0),
+                   ConditionalField(ShortField('dnet', None),
                                     lambda pkt: pkt.nlpci & 0b00100000 != 0),
-                   ConditionalField(PacketListField('source', None, NPDUSource),
+                   ConditionalField(FieldLenField('dlen', None, length_of='dadr', fmt='B'),
+                                    lambda pkt: pkt.nlpci & 0b00100000 != 0),
+                   ConditionalField(FieldListField('dadr', None, XByteField('dadr_byte', None),
+                                                   length_from=lambda pkt:pkt.dlen),
+                                    lambda pkt: pkt.nlpci & 0b00100000 != 0
+                                        and pkt.dlen != 0
+                                        and pkt.dadr is not None),
+                   # optional source
+#                    ConditionalField(PacketListField('source', None, NPDUSource),
+#                                     lambda pkt: pkt.nlpci & 0b00001000 != 0),
+                   ConditionalField(ShortField('snet', None),
                                     lambda pkt: pkt.nlpci & 0b00001000 != 0),
+                   ConditionalField(FieldLenField('slen', None, length_of='sadr', fmt='B'),
+                                    lambda pkt: pkt.nlpci & 0b00001000 != 0),
+                   ConditionalField(FieldListField('sadr', None, XByteField('sadr_byte', None),
+                                                   length_from=lambda pkt:pkt.slen),
+                                    lambda pkt: pkt.nlpci & 0b00001000 != 0),
+
                    ConditionalField(ByteField('hop_count', None),
                                     lambda pkt: pkt.nlpci & 0b00100000 != 0),
                    ConditionalField(XByteField('message_type', None),
                                     lambda pkt: pkt.nlpci & 0b10000000 != 0),
-                   ConditionalField(ShortField('network', None),
+                   ConditionalField(
+                                    ShortField('network', None),
                                     lambda pkt: pkt.message_type == NetworkLayerMessageType.WHO_IS_ROUTER_TO_NETWORK
-                                    and pkt.network is not None),
+                                        and pkt.network is not None
+                                    ),
                    ConditionalField(FieldListField('networks', None, ShortField('network', None)),
                                     lambda pkt: pkt.message_type == NetworkLayerMessageType.I_AM_ROUTER_TO_NETWORK),
-                   ]
-
-
-class PduType(Enum):
-    UNCONFIRMED_REQUEST = 1
-
-
-class UnconfirmedServiceChoice(Enum):
-    WHO_IS = 8
-
-
-class APDU(Packet):
-    name = 'APDU'
-    fields_desc = [
-                   BitEnumField('pdu_type', None, 4, PduType.revDict()),
-                   BitField('reserved', 0, 4),
-                   ByteEnumField('service_choice', None, UnconfirmedServiceChoice.revDict())
                    ]
 
 
@@ -170,6 +174,52 @@ class APDU(Packet):
 #             pkt = pkt[0] + struct.pack("!x", nlpci) + pkt[2:]
 #
 #         return pkt + pay
+
+
+#     def post_dissect(self, s):
+#         return s
+
+
+    def extract_padding(self, s):
+        if s != '' and self.message_type == NetworkLayerMessageType.WHO_IS_ROUTER_TO_NETWORK:
+            network = struct.unpack('!H', s)[0]
+            self.network = network
+            s = ''
+        return s, None
+
+
+class PduType(Enum):
+    CONFIRMED_REQUEST = 0
+    UNCONFIRMED_REQUEST = 1
+    SIMPLE_ACK = 2
+    COMPLEX_ACK = 3
+    SEGMENT_ACK = 4
+    ERROR = 5
+    REJECT = 6
+    ABORT = 7
+
+
+class UnconfirmedServiceChoice(Enum):
+    I_AM = 0
+    I_HAVE = 1
+    UNCONFIRMED_COV_NOTIFICATION = 2
+    UNCONFIRMED_EVENT_NOTIFICATION = 3
+    UNCONFIRMED_PRIVATE_TRANSFER = 4
+    UNCONFIRMED_TEXT_MESSAGE = 5
+    TIME_SYNCHRONIZATION = 6
+    WHO_HAS = 7
+    WHO_IS = 8
+    UTC_TIME_SYNCHRONIZATION = 9
+
+
+class APDU(Packet):
+    name = 'APDU'
+    fields_desc = [
+                   BitEnumField('pdu_type', None, 4, PduType.revDict()),
+                   BitField('reserved', 0, 4),
+                   ByteEnumField('service_choice', None, UnconfirmedServiceChoice.revDict())
+                   ]
+
 
 
 def getBvlcBase(ipDest):
@@ -253,6 +303,36 @@ def sendWhoIs(src, dst):
     apdu = npdu / APDU(pdu_type=PduType.UNCONFIRMED_REQUEST,
                        service_choice=UnconfirmedServiceChoice.WHO_IS)
     send(apdu, count=10)
+
+    
+def readPcap(pcapPath):
+    packets = rdpcap(pcapPath)
+    packets.summary()
+    replyDifs = []
+    reqTime = None
+    replTime = None
+    for packet in packets:
+        packet.summary()
+        bvlc = packet['BVLC']
+        npdu = packet['NPDU']
+        npdu.summary()
+        if packet.haslayer('APDU'):
+            apdu = packet['APDU']
+            timestamp = packet.time
+            if apdu.fields['service_choice'] == UnconfirmedServiceChoice.WHO_HAS:
+                if reqTime is not None:
+                    log.warn('No reply for request')
+                reqTime = timestamp
+            elif apdu.fields['service_choice'] == UnconfirmedServiceChoice.I_HAVE:
+                if reqTime is None:
+                    log.warn('No request for reply')
+                    continue
+                replTime = timestamp
+                diff = replTime - reqTime
+                replyDifs.append(diff)
+                reqTime = None
+                replTime = None
+    print str(replyDifs)
 
 
 if __name__ == "__main__":
