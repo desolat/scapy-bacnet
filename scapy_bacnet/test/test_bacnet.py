@@ -7,15 +7,13 @@
 
 import os.path
 
+import pytest
 from scapy.all import *
 from scapy.layers.inet import IP, UDP
 # from netaddr.ip import IPNetwork, IPAddress
-import pytest
 
-sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'src'))
-
-from scapy_bacnet.bacnet import BvlcFunction, BVLC, BACNET_PORT, NPDU, NetworkLayerMessageType, NPDUSource, \
-    NPDUDest, hexStringToIntList, APDU, PduType, UnconfirmedServiceChoice
+from bacnet import BvlcFunction, BVLC, BACNET_PORT, NPDU, NetworkLayerMessageType, \
+    NPDUSource, NPDUDest, hexStringToIntList, APDU, PduType, UnconfirmedServiceChoice
 
 
 SRC_IP = '192.168.56.1'
@@ -24,19 +22,6 @@ DST_BROADCAST = '192.168.56.255'
 DST_CIDR = '24'
 
 PCAP_PATH = os.path.normpath("")
-
-
-@pytest.fixture
-def bind_bvlc():
-    bind_layers(UDP, BVLC, sport=BACNET_PORT)
-    bind_layers(UDP, BVLC, dport=BACNET_PORT)
-
-
-@pytest.fixture
-def bind_apdu():
-    bind_bvlc()
-    bind_layers(BVLC, NPDU)
-    bind_layers(NPDU, APDU)
 
 
 @pytest.fixture
@@ -59,7 +44,6 @@ def npdu_distribute_broadcast(udp):
     bvlc = udp / BVLC(function=BvlcFunction.DISTRIBUTE_BROADCAST_TO_NETWORK)
     npdu = bvlc / NPDU(nlpci=0b00000000)
     return npdu
-
 
 def test_ifaces():
     show_interfaces()
@@ -211,23 +195,8 @@ def test_apdu_who_is_distribute_broadcast(npdu_distribute_broadcast):
 #        ans, unans = sr(p, multi=True, timeout=3, verbose=3)
 #        for answer in ans:
 #            answer.summarize()
-#
-#
-# def readPCAP(path, port=47808):
-#    bind_layers(UDP, BVLCBase, sport=port)
-#    bind_layers(UDP, BVLCBase, dport=port)
-#    bind_layers(BVLCBase, NPDU,
-#                function=BvlcFunction.ORIGINAL_BROADCAST_NPDU)
-#    bind_layers(NPDU, NPDUContentBase)
-#    bind_layers(NPDU, NPDUBase)
-#
-#    packets = rdpcap(path)
-#    packets.summary()
-#    for packet in packets:
-#        packet.summary()
-#        npdu = packet['NPDU']
-#        npdu.summary()
-#
+
+
 #    def _testSendIAmRouterToNetworkIPBroadcast(self):
 #        self.fakeBacDev.sendIAmRouterToNetwork(IPNetwork('/'.join([DST_BROADCAST, DST_CIDR])),
 #                                                         dest={'dnet' : 99, 'dadr' : '01'},

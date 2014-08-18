@@ -136,11 +136,27 @@ class NPDU(Packet):
 
 
 class PduType(Enum):
+    CONFIRMED_REQUEST = 0
     UNCONFIRMED_REQUEST = 1
+    SIMPLE_ACK = 2
+    COMPLEX_ACK = 3
+    SEGMENT_ACK = 4
+    ERROR = 5
+    REJECT = 6
+    ABORT = 7
 
 
 class UnconfirmedServiceChoice(Enum):
+    I_AM = 0
+    I_HAVE = 1
+    UNCONFIRMED_COV_NOTIFICATION = 2
+    UNCONFIRMED_EVENT_NOTIFICATION = 3
+    UNCONFIRMED_PRIVATE_TRANSFER = 4
+    UNCONFIRMED_TEXT_MESSAGE = 5
+    TIME_SYNCHRONIZATION = 6
+    WHO_HAS = 7
     WHO_IS = 8
+    UTC_TIME_SYNCHRONIZATION = 9
 
 
 class APDU(Packet):
@@ -212,6 +228,36 @@ def getNpduSource(source):
 def hexStringToIntList(hexStr):
     hexByteStrings = [hexStr[i:i + 2] for i in range(0, len(hexStr), 2)]
     return [int(hexByteStr, 16) for hexByteStr in hexByteStrings]
+
+
+def readPcap(pcapPath):
+    packets = rdpcap(pcapPath)
+    packets.summary()
+    replyDifs = []
+    reqTime = None
+    replTime = None
+    for packet in packets:
+        packet.summary()
+        bvlc = packet['BVLC']
+        npdu = packet['NPDU']
+        npdu.summary()
+        if packet.haslayer('APDU'):
+            apdu = packet['APDU']
+            timestamp = packet.time
+            if apdu.fields['service_choice'] == UnconfirmedServiceChoice.WHO_HAS:
+                if reqTime is not None:
+                    log.warn('No reply for request')
+                reqTime = timestamp
+            elif apdu.fields['service_choice'] == UnconfirmedServiceChoice.I_HAVE:
+                if reqTime is None:
+                    log.warn('No request for reply')
+                    continue
+                replTime = timestamp
+                diff = replTime - reqTime
+                replyDifs.append(diff)
+                reqTime = None
+                replTime = None
+    print str(replyDifs)
 
 
 if __name__ == "__main__":
