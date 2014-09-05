@@ -1,5 +1,14 @@
 # -*- coding: UTF-8 -*-
 '''
+Prerequisits:
+Windows: scapy and its dependencies:
+@todo: scapy: setup.py install
+@todo: pywin32: http://stackoverflow.com/a/2500528/47407 easy_install pysvn.exe
+@todo: winpcap: http://www.winpcap.org/ not a Python package, comes with Wireshark
+@todo: pypcap: win32 installer
+@todo: libdnet: win32 installer
+
+
 @since: 12.05.2014
 @author: nuabaranda@web.de
 '''
@@ -43,13 +52,14 @@ setup(
   download_url='https://github.com/desolat/scapy-bacnet/archive/master.zip',
   keywords=['scapy', 'bacnet'],
   classifiers=[],
+  # @todo: how to distiquish between Linux and Win installation?
   install_requires=[
                    # @todo: not maintained on pypi, how can I provide references to (Windows) installers?
 #                    'scapy',
 #                    'pywin32',
 #                    'pcap',
 #                    'dnet',
-#                    'pyreadline'
+                    'pyreadline'
                    ],
 
 )
