@@ -6,7 +6,7 @@
 
 import pytest
 
-from bacnet import readPcap
+from bacnet import visualizeRountTripTimes
 
 
 @pytest.fixture
@@ -15,7 +15,7 @@ def pcap_path():
 
 
 @pytest.mark.usefixtures('bind_apdu')
-def test_read_pcap(pcap_path):
-    readPcap(pcap_path)
+def test_visualizeRountTripTimes(pcap_path):
+    visualizeRountTripTimes(pcap_path)
 
 

@@ -264,13 +264,34 @@ def hexStringToIntList(hexStr):
     return [int(hexByteStr, 16) for hexByteStr in hexByteStrings]
 
 
-def readPcap(pcapPath):
+def visualizeRoundTripTimes(pcapPath):
+    bind_layers(UDP, BVLC, sport=BACNET_PORT)
+    bind_layers(UDP, BVLC, dport=BACNET_PORT)
+    bind_layers(BVLC, NPDU)
+    bind_layers(NPDU, APDU)
+
+    packets = getPackets(pcapPath)
+    rtts = getRoundTripTimes(packets)
+    rttsInMs = [rtt * 1000 for rtt in rtts]
+    from matplotlib import pyplot
+    pyplot.hist(rttsInMs, bins=40)
+    pyplot.title('DDC4200e, 1.12.2#464, Who-Has, Round-trip time distribution, No. of samples: %d' % len(rttsInMs))
+#     pyplot.ylabel('No. of conversations')
+    pyplot.xlabel('RTT (ms)')
+    pyplot.show()
+
+
+def getPackets(pcapPath):
     packets = rdpcap(pcapPath)
     packets.summary()
-    replyDifs = []
+    return packets
+
+
+def getRoundTripTimes(packets):
+    rtts = []
     reqTime = None
     replTime = None
-    for packet in packets:
+    for i, packet in enumerate(packets):
         packet.summary()
         bvlc = packet['BVLC']
         npdu = packet['NPDU']
@@ -278,20 +299,22 @@ def readPcap(pcapPath):
         if packet.haslayer('APDU'):
             apdu = packet['APDU']
             timestamp = packet.time
-            if apdu.fields['service_choice'] == UnconfirmedServiceChoice.WHO_HAS:
+            if apdu.fields['service_choice'] in (UnconfirmedServiceChoice.WHO_HAS,
+                                                 UnconfirmedServiceChoice.WHO_IS):
                 if reqTime is not None:
                     log.warn('No reply for request')
                 reqTime = timestamp
-            elif apdu.fields['service_choice'] == UnconfirmedServiceChoice.I_HAVE:
+            elif apdu.fields['service_choice'] in (UnconfirmedServiceChoice.I_HAVE,
+                                                   UnconfirmedServiceChoice.I_AM):
                 if reqTime is None:
                     log.warn('No request for reply')
                     continue
                 replTime = timestamp
                 diff = replTime - reqTime
-                replyDifs.append(diff)
+                rtts.append(diff)
                 reqTime = None
                 replTime = None
-    print str(replyDifs)
+    return rtts
 
 
 if __name__ == "__main__":
