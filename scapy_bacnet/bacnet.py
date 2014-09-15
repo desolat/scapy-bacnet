@@ -221,6 +221,12 @@ class APDU(Packet):
                    ]
 
 
+def bindLayers():
+    bind_layers(UDP, BVLC, sport=BACNET_PORT)
+    bind_layers(UDP, BVLC, dport=BACNET_PORT)
+    bind_layers(BVLC, NPDU)
+    bind_layers(NPDU, APDU)
+
 
 def getBvlcBase(ipDest):
     bvlcBase = {}
@@ -280,10 +286,13 @@ def hexStringToIntList(hexStr):
     return [int(hexByteStr, 16) for hexByteStr in hexByteStrings]
 
 
-def sendWhoIs(src, dst):
+def sendWhoIs(src, dst, count=1):
     '''
     @param dst: Destination IP or network 
+    @todo: Use matching interface IP as src
     '''
+
+    bindLayers()
 
     try:
         ipDst = IPNetwork(dst)
@@ -291,25 +300,18 @@ def sendWhoIs(src, dst):
     except:
         ipDst = IPAddress(dst)
 
-    bind_layers(UDP, BVLC, sport=BACNET_PORT)
-    bind_layers(UDP, BVLC, dport=BACNET_PORT)
-    bind_layers(BVLC, NPDU)
     udp = IP(src=src, dst=dst) / UDP(sport=BACNET_PORT, dport=BACNET_PORT)
-
     bvlcBase = getBvlcBase(ipDst)
     bvlc = udp / BVLC(**bvlcBase)
     npduBase = getNpduBase(withApdu=True)
     npdu = bvlc / NPDU(**npduBase)
     apdu = npdu / APDU(pdu_type=PduType.UNCONFIRMED_REQUEST,
                        service_choice=UnconfirmedServiceChoice.WHO_IS)
-    send(apdu, count=10)
+    send(apdu, count=count)
 
 
 def visualizeRoundTripTimes(pcapPath):
-    bind_layers(UDP, BVLC, sport=BACNET_PORT)
-    bind_layers(UDP, BVLC, dport=BACNET_PORT)
-    bind_layers(BVLC, NPDU)
-    bind_layers(NPDU, APDU)
+    bindLayers()
 
     packets = getPackets(pcapPath)
     rtts = getRoundTripTimes(packets)
