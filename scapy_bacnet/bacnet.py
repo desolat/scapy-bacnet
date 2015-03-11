@@ -221,71 +221,6 @@ class APDU(Packet):
                    ]
 
 
-def bindLayers():
-    bind_layers(UDP, BVLC, sport=BACNET_PORT)
-    bind_layers(UDP, BVLC, dport=BACNET_PORT)
-    bind_layers(BVLC, NPDU)
-    bind_layers(NPDU, APDU)
-
-
-def getBvlcBase(ipDest):
-    bvlcBase = {}
-    if isinstance(ipDest, IPNetwork):
-        function = BvlcFunction.ORIGINAL_BROADCAST_NPDU
-    elif isinstance(ipDest, IPAddress):
-        function = BvlcFunction.ORIGINAL_UNICAST_NPDU
-    else:
-        raise Scapy_Exception('Invalid class for IP destination')
-    bvlcBase['function'] = function
-    return bvlcBase
-
-
-def getNpduBase(dest=None, source=None, hopCount=255, withApdu=False):
-    npduContent = {'nlpci' : getNlpci(dest, source, withApdu)}
-    if dest:
-        npduContent['dest'] = getNpduDest(dest)
-        npduContent['hop_count'] = hopCount
-    if source:
-        npduContent['source'] = getNpduSource(source)
-    return npduContent
-
-
-def getNlpci(dest=None, source=None, withApdu=False):
-    if withApdu:
-        nlpci = 0b00000000
-    else:
-        nlpci = 0b10000000
-    if dest:
-        nlpci = nlpci | 0b00100000
-    if source:
-        nlpci = nlpci | 0b00001000
-    return nlpci
-
-
-def getNpduDest(dest):
-    if dest.has_key('dlen') and dest.has_key('dadr'):
-        log.warn('Both dlen and dadr not allowed in dest')
-    if dest.has_key('dadr'):
-        dest['dadr'] = hexStringToIntList(dest['dadr'])
-    if dest.has_key('dlen'):
-        if dest['dlen'] != 0:
-            log.warn('Invalid dlen: %d, only 0 for BROADCAST allowed' % dest['dlen'])
-    dest = NPDUDest(**dest)
-    return dest
-
-
-def getNpduSource(source):
-    if source.has_key('sadr'):
-        source['sadr'] = hexStringToIntList(source['sadr'])
-    source = NPDUSource(**source)
-    return source
-
-
-def hexStringToIntList(hexStr):
-    hexByteStrings = [hexStr[i:i + 2] for i in range(0, len(hexStr), 2)]
-    return [int(hexByteStr, 16) for hexByteStr in hexByteStrings]
-
-
 def sendWhoIs(src, dst, count=1):
     '''
     @param dst: Destination IP or network 
@@ -308,6 +243,81 @@ def sendWhoIs(src, dst, count=1):
     apdu = npdu / APDU(pdu_type=PduType.UNCONFIRMED_REQUEST,
                        service_choice=UnconfirmedServiceChoice.WHO_IS)
     send(apdu, count=count)
+
+
+def bindLayers():
+    bind_layers(UDP, BVLC, sport=BACNET_PORT)
+    bind_layers(UDP, BVLC, dport=BACNET_PORT)
+    bind_layers(BVLC, NPDU)
+    bind_layers(NPDU, APDU)
+
+
+def getBvlcBase(ipDest):
+    bvlcBase = {}
+    if isinstance(ipDest, IPNetwork):
+        function = BvlcFunction.ORIGINAL_BROADCAST_NPDU
+    elif isinstance(ipDest, IPAddress):
+        function = BvlcFunction.ORIGINAL_UNICAST_NPDU
+    else:
+        raise Scapy_Exception('Invalid class for IP destination')
+    bvlcBase['function'] = function
+    return bvlcBase
+
+
+def getNpduBase(dest=None, source=None, hopCount=255, withApdu=False):
+    npduContent = {'nlpci' : getNlpci(dest, source, withApdu)}
+    if dest:
+        npduContent.update(checkNpduDestContent(dest))
+        npduContent['hop_count'] = hopCount
+    if source:
+        npduContent.update(checkNpduSourceContent(source))
+    return npduContent
+
+
+def getNlpci(dest=None, source=None, withApdu=False):
+    if withApdu:
+        nlpci = 0b00000000
+    else:
+        nlpci = 0b10000000
+    if dest:
+        nlpci = nlpci | 0b00100000
+    if source:
+        nlpci = nlpci | 0b00001000
+    return nlpci
+
+
+def checkNpduDestContent(dest):
+    if dest.has_key('dlen') and dest.has_key('dadr'):
+        log.warn('Both dlen and dadr not allowed in dest')
+    if dest.has_key('dadr'):
+        dest['dadr'] = hexStringToIntList(dest['dadr'])
+    if dest.has_key('dlen'):
+        if dest['dlen'] != 0:
+            log.warn('Invalid dlen: %d, only 0 for BROADCAST allowed' % dest['dlen'])
+    return dest
+
+
+def getNpduDest(dest):
+    dest = checkNpduDestContent(dest)
+    dest = NPDUDest(**dest)
+    return dest
+
+
+def checkNpduSourceContent(source):
+    if source.has_key('sadr'):
+        source['sadr'] = hexStringToIntList(source['sadr'])
+    return source
+
+
+def getNpduSource(source):
+    source = checkNpduSourceContent(source)
+    source = NPDUSource(**source)
+    return source
+
+
+def hexStringToIntList(hexStr):
+    hexByteStrings = [hexStr[i:i + 2] for i in range(0, len(hexStr), 2)]
+    return [int(hexByteStr, 16) for hexByteStr in hexByteStrings]
 
 
 def visualizeRoundTripTimes(pcapPath):
