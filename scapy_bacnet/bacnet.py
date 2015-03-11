@@ -307,6 +307,9 @@ def sendWhoIs(src, dst, count=1):
     npdu = bvlc / NPDU(**npduBase)
     apdu = npdu / APDU(pdu_type=PduType.UNCONFIRMED_REQUEST,
                        service_choice=UnconfirmedServiceChoice.WHO_IS)
+
+    # sendp(): no packets on the wire?!
+    # srloop(): How to match answer to request?
     send(apdu, count=count)
 
 
